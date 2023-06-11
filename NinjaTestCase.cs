@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using NinjaTrader.Cbi;
 using NinjaTrader.NinjaScript;
 
-namespace UnittestExample
+namespace NinjaTraderUnitTesting
 {
     public class TestCase
     {
