@@ -1,118 +1,103 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using NinjaTrader.Cbi;
-using NinjaTrader.NinjaScript;
+﻿using NinjaTrader.Cbi;
+using System;
+using System.Reflection;
 
 namespace NinjaTrader.UnitTest
 {
-    public class TestCase
+    public class TestCase : Assert
     {
-        public string Name { get; set; }
-        public Action TestMethod { get; set; }
-
-        public TestCase(string name, Action testMethod)
+        public TestCase(string methodName = "RunTest")
         {
-            Name = name;
-            TestMethod = testMethod;
+            this.methodName = methodName;
         }
 
-        public void Run(TestResult result)
+        public TestResult Run(TestResult result = null)
         {
-            result.RunCount++;
+            result = result ?? new TestResult();
+            SetUp();
             try
             {
-                TestMethod();
+                MethodInfo method = this.GetType().GetMethod(methodName);
+                if (method != null)
+                {
+                    method.Invoke(this, null);
+                    result.AddSuccess();
+                    NinjaTrader.NinjaScript.NinjaScript.Log($"{method.Name} passed", LogLevel.Information);
+                }
+                else
+                {
+                    throw new Exception($"No such test method: {methodName}");
+                }
             }
-            catch (Exception ex)
+            catch (TargetInvocationException e)
             {
-                result.FailCount++;
-                result.Failures.Add($"{Name}: {ex.Message}");
-                NinjaTrader.NinjaScript.NinjaScript.Log($"{Name}: {ex.Message}", LogLevel.Error);
+                if (e.InnerException is Exception exception)
+                {
+                    result.AddFailure(this, exception.Message);
+                    NinjaTrader.NinjaScript.NinjaScript.Log($"{methodName} failed: {exception.Message}", LogLevel.Error);
+                }
+                else
+                {
+                    result.AddError(this, e.InnerException.Message);
+                    NinjaTrader.NinjaScript.NinjaScript.Log($"{methodName} errored: {e.InnerException.Message}", LogLevel.Error);
+                }
             }
+            TearDown();
+            return result;
         }
 
-        protected void Assert(bool condition, string message = null)
+        public virtual void SetUp() { }
+
+        public virtual void TearDown() { }
+
+        public static void SetUpClass() { }
+
+        public static void TearDownClass() { }
+
+        public void SkipTest(string reason)
         {
-            if (!condition)
-                throw new Exception(message ?? "Assertion failed");
+            throw new SkipTestException(reason);
         }
 
-        protected void AssertEqual<T>(T a, T b, string message = null)
+        public SubTest SubTest(string msg = null, params object[] parameters)
         {
-            if (!EqualityComparer<T>.Default.Equals(a, b))
-                throw new Exception(message ?? $"Assertion failed: {a} != {b}");
+            return new SubTest(this, msg, parameters);
         }
 
-        protected void AssertNotEqual<T>(T a, T b, string message = null)
+        public void SetVerbose(bool verbose)
         {
-            if (EqualityComparer<T>.Default.Equals(a, b))
-                throw new Exception(message ?? $"Assertion failed: {a} == {b}");
+            this.verbose = verbose;
         }
 
-        protected void AssertTrue(bool condition, string message = null)
+        private string methodName;
+        private bool verbose = true;
+
+        protected bool IsVerbose()
         {
-            if (!condition)
-                throw new Exception(message ?? "Assertion failed: condition is not true");
+            return verbose;
         }
+    }
 
-        protected void AssertFalse(bool condition, string message = null)
+    public class SkipTestException : Exception
+    {
+        public SkipTestException(string message) : base(message) { }
+    }
+
+    public class SubTest : IDisposable
+    {
+        private TestCase testCase;
+        private string msg;
+        private object[] parameters;
+
+        public SubTest(TestCase testCase, string msg, object[] parameters)
         {
-            if (condition)
-                throw new Exception(message ?? "Assertion failed: condition is not false");
+            this.testCase = testCase;
+            this.msg = msg;
+            this.parameters = parameters;
         }
-
-        protected void AssertIs<T>(T a, T b, string message = null)
+        public void Dispose()
         {
-            if (!object.ReferenceEquals(a, b))
-                throw new Exception(message ?? $"Assertion failed: {a} is not the same object as {b}");
+            // Implement any necessary cleanup code here
         }
-
-        protected void AssertIsNot<T>(T a, T b, string message = null)
-        {
-            if (object.ReferenceEquals(a, b))
-                throw new Exception(message ?? $"Assertion failed: {a} is the same object as {b}");
-        }
-
-        protected void AssertIsNone(object obj, string message = null)
-        {
-            if (obj != null)
-                throw new Exception(message ?? "Assertion failed: object is not null");
-        }
-
-        protected void AssertIsNotNone(object obj, string message = null)
-        {
-            if (obj == null)
-                throw new Exception(message ?? "Assertion failed: object is null");
-
-        }
-
-        protected void AssertIn<T>(T a, IEnumerable<T> b, string message = null)
-        {
-            if (!new HashSet<T>(b).Contains(a))
-                throw new Exception(message ?? $"Assertion failed: {a} not found in collection");
-        }
-
-        protected void AssertNotIn<T>(T a, IEnumerable<T> b, string message = null)
-        {
-            if (new HashSet<T>(b).Contains(a))
-                throw new Exception(message ?? $"Assertion failed: {a} found in collection");
-        }
-
-        protected void AssertIsInstance(object obj, Type type, string message = null)
-        {
-            if (!type.IsInstanceOfType(obj))
-                throw new Exception(message ?? $"Assertion failed: object is not an instance of {type}");
-        }
-
-        protected void AssertNotIsInstance(object obj, Type type, string message = null)
-        {
-            if (type.IsInstanceOfType(obj))
-                throw new Exception(message ?? $"Assertion failed: object is an instance of {type}");
-        }
-
-        // ... outros métodos de assert ...
     }
 }
