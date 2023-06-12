@@ -4,9 +4,9 @@ using NinjaTrader.NinjaScript;
 
 namespace NinjaTrader.UnitTest
 {
-    public static class Assert
+    public class Assert
     {
-        public static void AreEqual(object expected, object actual, string message = null)
+        public static void AssertEqual(object expected, object actual, string message = null)
         {
             if (!expected.Equals(actual))
             {
@@ -14,7 +14,7 @@ namespace NinjaTrader.UnitTest
             }
         }
 
-        public static void AreNotEqual(object expected, object actual, string message = null)
+        public static void AssertNotEqual(object expected, object actual, string message = null)
         {
             if (expected.Equals(actual))
             {
@@ -22,7 +22,7 @@ namespace NinjaTrader.UnitTest
             }
         }
 
-        public static void IsTrue(bool condition, string message = null)
+        public static void AssertTrue(bool condition, string message = null)
         {
             if (!condition)
             {
@@ -30,7 +30,7 @@ namespace NinjaTrader.UnitTest
             }
         }
 
-        public static void IsFalse(bool condition, string message = null)
+        public static void AssertFalse(bool condition, string message = null)
         {
             if (condition)
             {
@@ -38,7 +38,7 @@ namespace NinjaTrader.UnitTest
             }
         }
 
-        public static void Is(object expected, object actual, string message = null)
+        public static void AssertIs(object expected, object actual, string message = null)
         {
             if (!ReferenceEquals(expected, actual))
             {
@@ -46,7 +46,7 @@ namespace NinjaTrader.UnitTest
             }
         }
 
-        public static void IsNot(object expected, object actual, string message = null)
+        public static void AssertIsNot(object expected, object actual, string message = null)
         {
             if (ReferenceEquals(expected, actual))
             {
@@ -54,7 +54,7 @@ namespace NinjaTrader.UnitTest
             }
         }
 
-        public static void IsNone(object obj, string message = null)
+        public static void AssertIsNone(object obj, string message = null)
         {
             if (obj != null)
             {
@@ -62,7 +62,7 @@ namespace NinjaTrader.UnitTest
             }
         }
 
-        public static void IsNotNone(object obj, string message = null)
+        public static void AssertIsNotNone(object obj, string message = null)
         {
             if (obj == null)
             {
@@ -70,7 +70,7 @@ namespace NinjaTrader.UnitTest
             }
         }
 
-        public static void IsIn(object item, object collection, string message = null)
+        public static void AssertIn(object item, object collection, string message = null)
         {
             if (!((System.Collections.IList)collection).Contains(item))
             {
@@ -78,7 +78,7 @@ namespace NinjaTrader.UnitTest
             }
         }
 
-        public static void IsNotIn(object item, object collection, string message = null)
+        public static void AssertNotIn(object item, object collection, string message = null)
         {
             if (((System.Collections.IList)collection).Contains(item))
             {
@@ -86,7 +86,7 @@ namespace NinjaTrader.UnitTest
             }
         }
 
-        public static void IsInstance(object obj, Type type, string message = null)
+        public static void AssertIsInstance(object obj, Type type, string message = null)
         {
             if (!(type.IsInstanceOfType(obj)))
             {
@@ -94,7 +94,7 @@ namespace NinjaTrader.UnitTest
             }
         }
 
-        public static void IsNotInstance(object obj, Type type, string message = null)
+        public static void AssertNotIsInstance(object obj, Type type, string message = null)
         {
             if (type.IsInstanceOfType(obj))
             {
