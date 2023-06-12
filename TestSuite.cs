@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace NinjaTraderUnitTesting
+namespace NinjaTrader.UnitTest
 {
     public class TestSuite
     {

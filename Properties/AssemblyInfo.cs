@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // As informações gerais sobre um assembly são controladas por
 // conjunto de atributos. Altere estes valores de atributo para modificar as informações
 // associada a um assembly.
-[assembly: AssemblyTitle("NinjaTraderUnitTesting")]
+[assembly: AssemblyTitle("NinjaTrader.UnitTest")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("NinjaTraderUnitTesting")]
+[assembly: AssemblyProduct("NinjaTrader.UnitTest")]
 [assembly: AssemblyCopyright("Copyright ©  2023")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

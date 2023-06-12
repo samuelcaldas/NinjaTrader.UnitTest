@@ -1,10 +1,10 @@
-# NinjaTraderUnitTesting
+# NinjaTrader.UnitTest
 
-NinjaTraderUnitTesting is a solution for running unit tests within NinjaTrader. It provides a testing framework similar to Python's `unittest` module and allows you to write and run unit tests for your NinjaScript code.
+NinjaTrader.UnitTest is a solution for running unit tests within NinjaTrader. It provides a testing framework similar to Python's `unittest` module and allows you to write and run unit tests for your NinjaScript code.
 
 ## Installation
 
-To install NinjaTraderUnitTesting, follow these steps:
+To install NinjaTrader.UnitTest, follow these steps:
 
 1. Download the source code from the GitHub repository.
 2. Open the solution in Visual Studio and build the project.
@@ -12,17 +12,17 @@ To install NinjaTraderUnitTesting, follow these steps:
 
 ## Usage
 
-To use NinjaTraderUnitTesting in your NinjaScript projects, follow these steps:
+To use NinjaTrader.UnitTest in your NinjaScript projects, follow these steps:
 
-1. Add a reference to the NinjaTraderUnitTesting assembly in your NinjaScript project.
+1. Add a reference to the NinjaTrader.UnitTest assembly in your NinjaScript project.
 2. Create test cases by deriving from the `TestCase` class and implementing test methods.
 3. Create an instance of the `TestSuite` class, add your test cases to the suite, and run the suite to execute all tests.
 
-Here is an example of how you can write and run a unit test using NinjaTraderUnitTesting:
+Here is an example of how you can write and run a unit test using NinjaTrader.UnitTest:
 
 ```csharp
 using System;
-using NinjaTraderUnitTesting;
+using NinjaTrader.UnitTest;
 
 public class MyTests : TestCase
 {
@@ -43,4 +43,4 @@ This code creates a test case called `MyTests` that contains a test method calle
 
 ## License
 
-NinjaTraderUnitTesting is licensed under the MIT license.
+NinjaTrader.UnitTest is licensed under the MIT license.
