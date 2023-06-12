@@ -4,18 +4,20 @@ namespace NinjaTrader.UnitTest
 {
     public class TestSuite
     {
-        private List<TestCase> _tests = new List<TestCase>();
+        private List<TestCase> testCases = new List<TestCase>();
 
-        public void Add(TestCase test)
+        public void Add(TestCase testCase)
         {
-            _tests.Add(test);
+            testCases.Add(testCase);
         }
 
-        public TestResult Run()
+        public TestResult Run(TestResult result = null)
         {
-            TestResult result = new TestResult();
-            foreach (var test in _tests)
-                test.Run(result);
+            result = result ?? new TestResult();
+            foreach (TestCase testCase in testCases)
+            {
+                testCase.Run(result);
+            }
             return result;
         }
     }
