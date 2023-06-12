@@ -1,5 +1,7 @@
 ﻿using NinjaTrader.Cbi;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
 
 namespace NinjaTrader.UnitTest
@@ -14,6 +16,7 @@ namespace NinjaTrader.UnitTest
         public TestResult Run(TestResult result = null)
         {
             result = result ?? new TestResult();
+            Stopwatch stopwatch = Stopwatch.StartNew();
             SetUp();
             try
             {
@@ -21,7 +24,7 @@ namespace NinjaTrader.UnitTest
                 if (method != null)
                 {
                     method.Invoke(this, null);
-                    result.AddSuccess();
+                    result.AddSuccess(this);
                     NinjaTrader.NinjaScript.NinjaScript.Log($"{method.Name} passed", LogLevel.Information);
                 }
                 else
@@ -43,6 +46,8 @@ namespace NinjaTrader.UnitTest
                 }
             }
             TearDown();
+            stopwatch.Stop();
+            result.AddTime(stopwatch.Elapsed.TotalSeconds);
             return result;
         }
 
@@ -59,7 +64,7 @@ namespace NinjaTrader.UnitTest
             throw new SkipTestException(reason);
         }
 
-        public SubTest SubTest(string msg = null, params object[] parameters)
+        public SubTest SubTest(string msg = null, Dictionary<string, object> parameters)
         {
             return new SubTest(this, msg, parameters);
         }
@@ -75,29 +80,6 @@ namespace NinjaTrader.UnitTest
         protected bool IsVerbose()
         {
             return verbose;
-        }
-    }
-
-    public class SkipTestException : Exception
-    {
-        public SkipTestException(string message) : base(message) { }
-    }
-
-    public class SubTest : IDisposable
-    {
-        private TestCase testCase;
-        private string msg;
-        private object[] parameters;
-
-        public SubTest(TestCase testCase, string msg, object[] parameters)
-        {
-            this.testCase = testCase;
-            this.msg = msg;
-            this.parameters = parameters;
-        }
-        public void Dispose()
-        {
-            // Implement any necessary cleanup code here
         }
     }
 }
