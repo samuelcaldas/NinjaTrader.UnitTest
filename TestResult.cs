@@ -36,7 +36,7 @@ namespace NinjaTrader.UnitTest
             failuresList.Add((testCase, message));
             if (verbose)
             {
-                NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase.GetType().Name} ... FAIL", LogLevel.Error);
+                NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase.GetType().Name} ... FAIL", LogLevel.Warning);
             }
         }
 
