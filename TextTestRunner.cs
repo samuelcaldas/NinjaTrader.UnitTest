@@ -1,6 +1,6 @@
 ﻿namespace NinjaTrader.UnitTest
 {
-    public static class TestRunner
+    public static class TextTestRunner
     {
         public static void Run(TestSuite testSuite)
         {
