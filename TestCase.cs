@@ -24,25 +24,22 @@ namespace NinjaTrader.UnitTest
                 if (method != null)
                 {
                     method.Invoke(this, null);
-                    result.AddSuccess(this);
-                    NinjaTrader.NinjaScript.NinjaScript.Log($"{method.Name} passed", LogLevel.Information);
                 }
                 else
                 {
-                    throw new Exception($"No such test method: {methodName}");
+                    NinjaTrader.NinjaScript.NinjaScript.Log($"No such test method: {methodName}", LogLevel.Error);
                 }
+                result.AddSuccess(methodName);
             }
             catch (TargetInvocationException e)
             {
                 if (e.InnerException is Exception exception)
                 {
-                    result.AddFailure(this, exception.Message);
-                    NinjaTrader.NinjaScript.NinjaScript.Log($"{methodName} failed: {exception.Message}", LogLevel.Error);
+                    result.AddFailure(methodName, exception);
                 }
                 else
                 {
-                    result.AddError(this, e.InnerException.Message);
-                    NinjaTrader.NinjaScript.NinjaScript.Log($"{methodName} errored: {e.InnerException.Message}", LogLevel.Error);
+                    result.AddError(methodName, e.InnerException);
                 }
             }
             TearDown();
@@ -64,22 +61,11 @@ namespace NinjaTrader.UnitTest
             throw new SkipTestException(reason);
         }
 
-        public SubTest SubTest(string msg = null, Dictionary<string, object> parameters)
+        public SubTest SubTest(string msg = null, Dictionary<string, object> parameters = null)
         {
-            return new SubTest(this, msg, parameters);
-        }
-
-        public void SetVerbose(bool verbose)
-        {
-            this.verbose = verbose;
+            return new SubTest(methodName, msg, parameters);
         }
 
         private string methodName;
-        private bool verbose = true;
-
-        protected bool IsVerbose()
-        {
-            return verbose;
-        }
     }
 }

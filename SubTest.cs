@@ -6,34 +6,45 @@ namespace NinjaTrader.UnitTest
 {
     public class SubTest : IDisposable
     {
-        private TestCase testCase;
+        private string testCase;
         private string msg;
         private Dictionary<string, object> parameters;
-        private bool success;
+        private bool success = true;
 
-        public SubTest(TestCase testCase, string msg = null, Dictionary<string, object> parameters = null)
+        public SubTest(string testCase, string msg = null, Dictionary<string, object> parameters = null)
         {
             this.testCase = testCase;
             this.msg = msg;
             this.parameters = parameters ?? new Dictionary<string, object>();
-            this.success = true;
         }
 
         public void Dispose()
         {
-            if (success)
+            try
             {
-                NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase.GetType().Name} ({msg}) ... ok", LogLevel.Information);
-            }
-            else
-            {
-                NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase.GetType().Name} ({msg}) ... FAIL", LogLevel.Error);
-            }
-        }
+                // Execute the test case
+                //testCase.Run();
 
-        internal void SetSuccess(bool success)
-        {
-            this.success = success;
+                // Set the success flag to true if execution does not throw an exception
+                success = true;
+            }
+            catch (Exception)
+            {
+                // Set the success flag to false if an exception is encountered
+                success = false;
+                throw; // re-throw the exception to signal test failure
+            }
+            finally
+            {
+                if (success)
+                {
+                    NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase} ({msg})", LogLevel.Information);
+                }
+                else
+                {
+                    NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase} ({msg}) ... FAIL", LogLevel.Error);
+                }
+            }
         }
     }
 }

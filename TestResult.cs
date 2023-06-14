@@ -1,84 +1,82 @@
-﻿using System;
+﻿using NinjaTrader.Cbi;
+using System;
 using System.Collections.Generic;
-using NinjaTrader.Cbi;
-using NinjaTrader.NinjaScript;
+using System.IO;
+using System.Reflection;
 
 namespace NinjaTrader.UnitTest
 {
     public class TestResult
     {
-        public int TestsRun => successes + failures + errors;
+        public int RunCount => SuccessCount + FailureCount + ErrorCount;
+        public List<string> Successes { get; } = new List<string>();
+        public List<(string, Exception)> Errors { get; } = new List<(string, Exception)>();
+        public List<(string, Exception)> Failures { get; } = new List<(string, Exception)>();
+        public double Duration { get; private set; }
 
-        public int Successes => successes;
+        public int FailureCount => Failures.Count;
+        public int ErrorCount => Errors.Count;
+        public int SuccessCount => Successes.Count;
 
-        public int Failures => failures;
-
-        public int Errors => errors;
-
-        public List<(TestCase, string)> FailuresList => failuresList;
-
-        public List<(TestCase, string)> ErrorsList => errorsList;
-
-        public double Time => time;
-
-        internal void AddSuccess(TestCase testCase)
+        public TestResult(bool verbose = true)
         {
-            successes++;
+            this.verbose = verbose;
+        }
+
+        internal virtual void AddSuccess(string testCase)
+        {
+            Successes.Add(testCase);
             if (verbose)
             {
-                NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase.GetType().Name} ... ok", LogLevel.Information);
+                NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase} ... OK", LogLevel.Information);
             }
         }
 
-        internal void AddFailure(TestCase testCase, string message)
+        public virtual void AddFailure(string testCase, Exception exception)
         {
-            failures++;
-            failuresList.Add((testCase, message));
+            Failures.Add((testCase, exception));
             if (verbose)
             {
-                NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase.GetType().Name} ... FAIL", LogLevel.Warning);
+                NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase} ... FAIL: {exception.Message}", LogLevel.Warning);
             }
         }
 
-        internal void AddError(TestCase testCase, string message)
+        public virtual void AddError(string testCase, Exception exception)
         {
-            errors++;
-            errorsList.Add((testCase, message));
+            Errors.Add((testCase, exception));
             if (verbose)
             {
-                NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase.GetType().Name} ... ERROR", LogLevel.Error);
+                NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase} ... ERROR: {exception.Message}", LogLevel.Error);
             }
         }
 
-        internal void AddTime(double seconds)
+        public virtual void AddSubTest(string testCase, SubTest subTest, string exception)
         {
-            time += seconds;
+
+        }
+
+        internal void AddTime(double duration)
+        {
+            Duration += duration;
+        }
+
+        public bool WasSuccessful()
+        {
+            return (FailureCount == 0 && ErrorCount == 0);
         }
 
         public void PrintSummary()
         {
-            NinjaTrader.NinjaScript.NinjaScript.Log($"\nRan {TestsRun} tests in {Time:F3}s\n", LogLevel.Information);
-            if (Failures == 0 && Errors == 0)
+            NinjaTrader.NinjaScript.NinjaScript.Log($"Ran {RunCount} tests in {Duration:F3}s", LogLevel.Information);
+            if (WasSuccessful())
             {
                 NinjaTrader.NinjaScript.NinjaScript.Log("OK", LogLevel.Information);
             }
             else
             {
-                NinjaTrader.NinjaScript.NinjaScript.Log($"FAILED (failures={Failures}, errors={Errors})", LogLevel.Error);
+                NinjaTrader.NinjaScript.NinjaScript.Log($"FAILED (failures={FailureCount}, errors={ErrorCount})", LogLevel.Error);
             }
         }
-
-        public void SetVerbose(bool verbose)
-        {
-            this.verbose = verbose;
-        }
-
-        private int successes = 0;
-        private int failures = 0;
-        private int errors = 0;
-        private double time = 0;
         private bool verbose = true;
-        private List<(TestCase, string)> failuresList = new List<(TestCase, string)>();
-        private List<(TestCase, string)> errorsList = new List<(TestCase, string)>();
     }
 }
