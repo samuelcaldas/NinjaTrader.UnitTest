@@ -107,7 +107,7 @@ This will execute the `TestAddition` method and log the results using the `Ninja
 
 ## Contributing
 
-*Information on how to contribute to this project will be provided once the project is more complete.*
+We welcome contributions! If you have ideas for improving this tool, please feel free to submit a pull request or open an issue.
 
 ## License
 
