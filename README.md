@@ -42,5 +42,7 @@ TestResult result = suite.Run();
 This code creates a test case called `MyTests` that contains a test method called `TestSomething`. The test method uses the `AssertEqual` method from the `TestCase` base class to check if two variables are equal. It then creates an instance of the `TestSuite` class, adds the test case to the suite, and runs the suite to execute all tests.
 
 ## License
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more information.
 
-NinjaTrader.UnitTest is licensed under the MIT license.
+## Contributing
+We welcome contributions! If you have ideas for improving this tool, please feel free to submit a pull request or open an issue.
