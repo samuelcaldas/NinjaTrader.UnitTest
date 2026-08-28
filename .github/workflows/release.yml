@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build, Test & Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Solution (Release x64)
+        run: |
+          msbuild NinjaTrader.UnitTest.sln /p:Configuration=Release /p:Platform="x64" /p:PostBuildEvent=""
+
+      - name: Run Self-Tests
+        shell: pwsh
+        run: |
+          $asm = [System.Reflection.Assembly]::LoadFrom("bin/x64/Release/NinjaTrader.UnitTest.dll")
+          $testClass = $asm.GetType("NinjaTrader.UnitTest.FrameworkSelfTests")
+          $loaderType = $asm.GetType("NinjaTrader.UnitTest.TestLoader")
+          $runnerType = $asm.GetType("NinjaTrader.UnitTest.TextTestRunner")
+          $outputType = $asm.GetType("NinjaTrader.UnitTest.ConsoleOutput")
+          
+          $suite = $loaderType.GetMethod("LoadTestsFromTestCase", [Type[]]@([Type])).Invoke($null, @($testClass))
+          $consoleOutput = [Activator]::CreateInstance($outputType)
+          $runnerCtor = $runnerType.GetConstructor([Type[]]@([int], [bool], [System.IO.TextWriter], $asm.GetType("NinjaTrader.UnitTest.ITestOutput")))
+          $runner = $runnerCtor.Invoke(@(2, $false, $null, $consoleOutput))
+          
+          $result = $runnerType.GetMethod("Run", [Type[]]@($asm.GetType("NinjaTrader.UnitTest.TestSuite"))).Invoke($runner, @($suite))
+          
+          Write-Host "`nTest Execution Summary:"
+          Write-Host "WasSuccessful: $($result.WasSuccessful())"
+          Write-Host "Successes:     $($result.SuccessCount)"
+          Write-Host "Failures:      $($result.FailureCount)"
+          Write-Host "Errors:        $($result.ErrorCount)"
+          
+          if (-not $result.WasSuccessful()) {
+              Write-Error "Test suite execution failed with $($result.FailureCount) failures and $($result.ErrorCount) errors."
+              exit 1
+          }
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            bin/x64/Release/NinjaTrader.UnitTest.dll
+            bin/x64/Release/NinjaTrader.UnitTest.pdb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

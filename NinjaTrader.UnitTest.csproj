@@ -49,6 +49,7 @@
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
   <PropertyGroup>
+    <NinjaTraderPath Condition="'$(NinjaTraderPath)' == '' and Exists('$(MSBuildThisFileDirectory)lib\NinjaTrader.Core.dll')">$(MSBuildThisFileDirectory)lib</NinjaTraderPath>
     <NinjaTraderPath Condition="'$(NinjaTraderPath)' == '' and Exists('$(ProgramW6432)\NinjaTrader 8\bin')">$(ProgramW6432)\NinjaTrader 8\bin</NinjaTraderPath>
     <NinjaTraderPath Condition="'$(NinjaTraderPath)' == '' and Exists('C:\Program Files\NinjaTrader 8\bin')">C:\Program Files\NinjaTrader 8\bin</NinjaTraderPath>
     <NinjaTraderPath Condition="'$(NinjaTraderPath)' == ''">..\..\..\..\..\..\Program Files\NinjaTrader 8\bin</NinjaTraderPath>
