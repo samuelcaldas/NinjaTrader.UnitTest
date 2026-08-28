@@ -19,26 +19,34 @@ Built using Visual Studio or MSBuild (.NET Framework 4.8):
 
 *Note on Deployment:* `NinjaTrader.UnitTest.csproj` has a `PostBuildEvent` that automatically copies `NinjaTrader.UnitTest.dll` and `.pdb` to the local user's `%USERPROFILE%\Documents\NinjaTrader 8\bin\Custom\` folder.
 
-## Architecture & Core Components
+## Architecture & Codebase Structure
 
-All types reside in `NinjaTrader.UnitTest` and `NinjaTrader.UnitTest.Mocking`:
+The codebase is organized according to Domain-Driven Design (DDD), SOLID, and Object Calisthenics principles:
 
-- **`TestCase` (`TestCase.cs`):** Base test class subclassing `Assert`.
-  - Executes test methods via reflection.
-  - Lifecycle hooks: `SetUp()`, `TearDown()`, `SetUpClass()`, `TearDownClass()`, `AddCleanup(action)`.
-  - Dynamic skipping (`SkipTest(reason)`), expected failures (`[ExpectedFailure]`), and `SubTest(msg, action)`.
-  - Distinguishes between `AssertionException` (Failures) and unexpected runtime crashes (Errors).
-- **`TestLoader` (`TestLoader.cs`):** Hybrid test discovery via `Test*` / `test_*` naming conventions or `[Test]` / `[TestMethod]` attributes (`TestLoader.LoadTestsFromTestCase<T>()`, `TestLoader.LoadTestsFromAssembly(asm)`).
-- **`Assert` (`Assert.cs`):** Assertion utility with full Python unittest methods (`AssertEqual`, `AssertRaises`, `AssertAlmostEqual`, `AssertIsNone`, `AssertIn`, `AssertGreater`, `AssertRegex`, etc.) and standard C# aliases (`AreEqual`, `Throws`, `AreAlmostEqual`, `IsNull`, `Contains`, `IsTrue`).
-- **`TestSuite` (`TestSuite.cs`):** Composite aggregator of test cases and nested suites, coordinating class-level `SetUpClass` and `TearDownClass` fixtures.
-- **`TestResult` (`TestResult.cs`):** Tracks successes, failures, errors, skips, expected failures, subtests, and outputs via `ITestOutput`.
-- **`TextTestRunner` (`TextTestRunner.cs`):** Runner entry point supporting verbosity, failfast, custom output streams, and summary reports.
-- **`NinjaTrader.UnitTest.Mocking`:**
-  - `BarSeriesBuilder` & `MockBarSeries`: Fluent OHLCV price series generator with NinjaTrader-style `Close(barsAgo)` indexing.
-  - `MockInstrument`: Instrument specs, tick rounding, tick calculations, and asset presets (ES, MES, AAPL, EURUSD, BTCUSD).
-  - `MockAccount` & `MockOrder`: Position tracking, fill simulations, and realized/unrealized PnL.
-  - `NinjaScriptTestHarness`: State lifecycle and bar-by-bar execution harness for indicators and strategies.
+```
+src/
+├── Assertions/       # IAssert interface and Assert utility
+├── Attributes/       # [Test], [Skip], [SkipIf], [SkipUnless], [ExpectedFailure], [SetUpClass]
+├── Discovery/        # TestLoader (reflection & auto-discovery)
+├── Exceptions/       # AssertionException, SkipTestException, UnexpectedSuccessException
+├── Execution/        # TestCase lifecycle, TestSuite runner, SubTest context
+├── Mocking/          # Mock objects for NT8
+│   ├── Accounts/     # MockAccount, MockPosition
+│   ├── Bars/         # BarSeriesBuilder, MockBar, MockBarSeries
+│   ├── Harness/      # MockState, NinjaScriptTestHarness
+│   ├── Instruments/  # MockInstrument, MockInstrumentType
+│   └── Orders/       # MockOrder, MockOrderAction, MockOrderState, MockOrderType
+├── Output/           # ITestOutput, NinjaTraderOutput, ConsoleOutput, TextWriterOutput
+└── Results/          # TestResult, TextTestResult, TextTestRunner
+
+tests/
+├── Assertions/       # BasicAssertionTests, CollectionAssertionTests, NumericAndRegexAssertionTests
+├── Discovery/        # TestLoaderTests
+├── Execution/        # LifecycleAndFixtureTests, SkipAndExpectedFailureTests, SubTestTests
+├── Mocking/          # MockAccountAndOrderTests, MockBarsTests, MockInstrumentTests, NinjaScriptTestHarnessTests
+└── Results/          # TestResultClassificationTests
+```
 
 ## Dependencies
 - **Target Framework:** .NET Framework 4.8 (`v4.8`), C# 7.3 (`x64`).
-- **Binary Dependencies:** `NinjaTrader.Core.dll` and `NinjaTrader.Gui.dll` (located at `C:\Program Files\NinjaTrader 8\bin\`).
+- **Binary Dependencies:** `NinjaTrader.Core.dll` and `NinjaTrader.Gui.dll` (located in `lib/` and resolved from `C:\Program Files\NinjaTrader 8\bin\`).

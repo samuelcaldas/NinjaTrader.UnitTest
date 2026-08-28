@@ -28,12 +28,11 @@ jobs:
         shell: pwsh
         run: |
           $asm = [System.Reflection.Assembly]::LoadFrom("bin/x64/Release/NinjaTrader.UnitTest.dll")
-          $testClass = $asm.GetType("NinjaTrader.UnitTest.FrameworkSelfTests")
           $loaderType = $asm.GetType("NinjaTrader.UnitTest.TestLoader")
           $runnerType = $asm.GetType("NinjaTrader.UnitTest.TextTestRunner")
           $outputType = $asm.GetType("NinjaTrader.UnitTest.ConsoleOutput")
           
-          $suite = $loaderType.GetMethod("LoadTestsFromTestCase", [Type[]]@([Type])).Invoke($null, @($testClass))
+          $suite = $loaderType.GetMethod("LoadTestsFromAssembly", [Type[]]@([System.Reflection.Assembly])).Invoke($null, @($asm))
           $consoleOutput = [Activator]::CreateInstance($outputType)
           $runnerCtor = $runnerType.GetConstructor([Type[]]@([int], [bool], [System.IO.TextWriter], $asm.GetType("NinjaTrader.UnitTest.ITestOutput")))
           $runner = $runnerCtor.Invoke(@(2, $false, $null, $consoleOutput))
