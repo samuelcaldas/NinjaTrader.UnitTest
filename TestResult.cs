@@ -1,82 +1,193 @@
-﻿using NinjaTrader.Cbi;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
 
 namespace NinjaTrader.UnitTest
 {
+    /// <summary>
+    /// Accumulates and reports results of test execution.
+    /// </summary>
     public class TestResult
     {
-        public int RunCount => SuccessCount + FailureCount + ErrorCount;
         public List<string> Successes { get; } = new List<string>();
-        public List<(string, Exception)> Errors { get; } = new List<(string, Exception)>();
-        public List<(string, Exception)> Failures { get; } = new List<(string, Exception)>();
+        public List<(string TestName, Exception Exception)> Failures { get; } = new List<(string, Exception)>();
+        public List<(string TestName, Exception Exception)> Errors { get; } = new List<(string, Exception)>();
+        public List<(string TestName, string Reason)> Skipped { get; } = new List<(string, string)>();
+        public List<(string TestName, Exception Exception)> ExpectedFailures { get; } = new List<(string, Exception)>();
+        public List<string> UnexpectedSuccesses { get; } = new List<string>();
+        public List<(string TestName, SubTest SubTest, Exception Exception)> SubTestFailures { get; } = new List<(string, SubTest, Exception)>();
+
         public double Duration { get; private set; }
+        public bool FailFast { get; set; }
+        public bool ShouldStop { get; private set; }
+        public int Verbosity { get; set; }
+        public ITestOutput Output { get; set; }
 
-        public int FailureCount => Failures.Count;
-        public int ErrorCount => Errors.Count;
         public int SuccessCount => Successes.Count;
+        public int FailureCount => Failures.Count + SubTestFailures.Count;
+        public int ErrorCount => Errors.Count;
+        public int SkipCount => Skipped.Count;
+        public int ExpectedFailureCount => ExpectedFailures.Count;
+        public int UnexpectedSuccessCount => UnexpectedSuccesses.Count;
+        public int RunCount => SuccessCount + Failures.Count + ErrorCount + ExpectedFailureCount + UnexpectedSuccessCount;
 
-        public TestResult(bool verbose = true)
+        public TestResult(bool verbose = true, ITestOutput output = null)
         {
-            this.verbose = verbose;
+            Verbosity = verbose ? 1 : 0;
+            Output = output ?? TestOutputHelper.Default;
         }
 
-        internal virtual void AddSuccess(string testCase)
+        public TestResult(int verbosity, ITestOutput output = null)
+        {
+            Verbosity = verbosity;
+            Output = output ?? TestOutputHelper.Default;
+        }
+
+        public virtual void AddSuccess(string testCase)
         {
             Successes.Add(testCase);
-            if (verbose)
+            if (Verbosity > 0)
             {
-                NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase} ... OK", LogLevel.Information);
+                Output.WriteLine($"{testCase} ... OK", OutputLevel.Information);
             }
         }
 
         public virtual void AddFailure(string testCase, Exception exception)
         {
             Failures.Add((testCase, exception));
-            if (verbose)
+            if (Verbosity > 0)
             {
-                NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase} ... FAIL: {exception.Message}", LogLevel.Warning);
+                Output.WriteLine($"{testCase} ... FAIL: {exception.Message}", OutputLevel.Warning);
+            }
+            if (FailFast)
+            {
+                Stop();
             }
         }
 
         public virtual void AddError(string testCase, Exception exception)
         {
             Errors.Add((testCase, exception));
-            if (verbose)
+            if (Verbosity > 0)
             {
-                NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase} ... ERROR: {exception.Message}", LogLevel.Error);
+                Output.WriteLine($"{testCase} ... ERROR: {exception.Message}", OutputLevel.Error);
+            }
+            if (FailFast)
+            {
+                Stop();
             }
         }
 
-        public virtual void AddSubTest(string testCase, SubTest subTest, string exception)
+        public virtual void AddSkip(string testCase, string reason)
         {
-
+            Skipped.Add((testCase, reason));
+            if (Verbosity > 0)
+            {
+                Output.WriteLine($"{testCase} ... SKIPPED ({reason})", OutputLevel.Information);
+            }
         }
 
-        internal void AddTime(double duration)
+        public virtual void AddExpectedFailure(string testCase, Exception exception)
+        {
+            ExpectedFailures.Add((testCase, exception));
+            if (Verbosity > 0)
+            {
+                Output.WriteLine($"{testCase} ... expected failure: {exception.Message}", OutputLevel.Information);
+            }
+        }
+
+        public virtual void AddUnexpectedSuccess(string testCase)
+        {
+            UnexpectedSuccesses.Add(testCase);
+            if (Verbosity > 0)
+            {
+                Output.WriteLine($"{testCase} ... unexpected success", OutputLevel.Warning);
+            }
+            if (FailFast)
+            {
+                Stop();
+            }
+        }
+
+        public virtual void AddSubTest(string testCase, SubTest subTest, Exception exception)
+        {
+            if (exception == null)
+            {
+                if (Verbosity > 1)
+                {
+                    Output.WriteLine($"  {subTest} ... OK", OutputLevel.Information);
+                }
+            }
+            else
+            {
+                SubTestFailures.Add((testCase, subTest, exception));
+                if (Verbosity > 0)
+                {
+                    Output.WriteLine($"  {subTest} ... FAIL: {exception.Message}", OutputLevel.Warning);
+                }
+                if (FailFast)
+                {
+                    Stop();
+                }
+            }
+        }
+
+        public void AddTime(double duration)
         {
             Duration += duration;
         }
 
+        public void Stop()
+        {
+            ShouldStop = true;
+        }
+
         public bool WasSuccessful()
         {
-            return (FailureCount == 0 && ErrorCount == 0);
+            return (FailureCount == 0 && ErrorCount == 0 && UnexpectedSuccessCount == 0);
         }
 
         public void PrintSummary()
         {
-            NinjaTrader.NinjaScript.NinjaScript.Log($"Ran {RunCount} tests in {Duration:F3}s", LogLevel.Information);
+            Output.WriteLine($"\n----------------------------------------------------------------------", OutputLevel.Information);
+            Output.WriteLine($"Ran {RunCount} test(s) in {Duration:F3}s", OutputLevel.Information);
+
+            if (Failures.Count > 0 || SubTestFailures.Count > 0)
+            {
+                Output.WriteLine("\nFAILURES:", OutputLevel.Warning);
+                foreach (var f in Failures)
+                {
+                    Output.WriteLine($"FAIL: {f.TestName}\n{f.Exception}", OutputLevel.Warning);
+                }
+                foreach (var stf in SubTestFailures)
+                {
+                    Output.WriteLine($"SUBTEST FAIL: {stf.SubTest}\n{stf.Exception}", OutputLevel.Warning);
+                }
+            }
+
+            if (Errors.Count > 0)
+            {
+                Output.WriteLine("\nERRORS:", OutputLevel.Error);
+                foreach (var e in Errors)
+                {
+                    Output.WriteLine($"ERROR: {e.TestName}\n{e.Exception}", OutputLevel.Error);
+                }
+            }
+
             if (WasSuccessful())
             {
-                NinjaTrader.NinjaScript.NinjaScript.Log("OK", LogLevel.Information);
+                string extra = SkipCount > 0 ? $" (skipped={SkipCount})" : "";
+                Output.WriteLine($"OK{extra}", OutputLevel.Information);
             }
             else
             {
-                NinjaTrader.NinjaScript.NinjaScript.Log($"FAILED (failures={FailureCount}, errors={ErrorCount})", LogLevel.Error);
+                var details = new List<string>();
+                if (FailureCount > 0) details.Add($"failures={FailureCount}");
+                if (ErrorCount > 0) details.Add($"errors={ErrorCount}");
+                if (SkipCount > 0) details.Add($"skipped={SkipCount}");
+                if (UnexpectedSuccessCount > 0) details.Add($"unexpected_successes={UnexpectedSuccessCount}");
+
+                Output.WriteLine($"FAILED ({string.Join(", ", details)})", OutputLevel.Error);
             }
         }
-        private bool verbose = true;
     }
 }

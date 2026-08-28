@@ -1,13 +1,29 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.IO;
-using NinjaTrader.Cbi;
-using NinjaTrader.NinjaScript;
 
 namespace NinjaTrader.UnitTest
 {
-    public static class TextTestRunner
+    /// <summary>
+    /// Static and instance test runner modeled after Python unittest.TextTestRunner.
+    /// </summary>
+    public class TextTestRunner
     {
+        private readonly int _verbosity;
+        private readonly bool _failFast;
+        private readonly ITestOutput _output;
+
+        public TextTestRunner(int verbosity = 1, bool failfast = false, TextWriter stream = null, ITestOutput output = null)
+        {
+            _verbosity = verbosity;
+            _failFast = failfast;
+            if (output != null)
+                _output = output;
+            else if (stream != null)
+                _output = new TextWriterOutput(stream);
+            else
+                _output = TestOutputHelper.Default;
+        }
+
         public static TestResult Run(
             TestSuite suite,
             bool descriptions = true,
@@ -16,60 +32,41 @@ namespace NinjaTrader.UnitTest
             bool buffer = false,
             Type resultclass = null,
             string warnings = null,
-            bool tb_locals = false)
+            bool tb_locals = false,
+            TextWriter stream = null,
+            ITestOutput output = null)
         {
-            var runner = new BasicTestRunner(descriptions, verbosity);
+            var runner = new TextTestRunner(verbosity, failfast, stream, output);
             return runner.Run(suite);
         }
-    }
 
-    public class BasicTestRunner
-    {
-        private readonly bool _descriptions;
-        private readonly int _verbosity;
-        private readonly TextWriter _stream;
-
-        public BasicTestRunner(bool descriptions, int verbosity, TextWriter stream = null)
+        public static TestResult Run(
+            TestCase testCase,
+            int verbosity = 1,
+            bool failfast = false,
+            TextWriter stream = null,
+            ITestOutput output = null)
         {
-            _descriptions = descriptions;
-            _verbosity = verbosity;
-            _stream = stream;
+            var suite = new TestSuite();
+            suite.Add(testCase);
+            var runner = new TextTestRunner(verbosity, failfast, stream, output);
+            return runner.Run(suite);
         }
 
         public TestResult Run(TestSuite suite)
         {
-            var result = new TestResult();
-            suite.Run(result);
+            if (suite == null)
+                throw new ArgumentNullException(nameof(suite));
 
-            if (_verbosity > 0)
-                PrintResult(result);
+            var result = new TestResult(_verbosity, _output)
+            {
+                FailFast = _failFast
+            };
+
+            suite.Run(result);
+            result.PrintSummary();
 
             return result;
-        }
-
-        private void PrintResult(TestResult result)
-        {
-            var messages = new List<string>();
-
-            foreach (var failure in result.Failures)
-                messages.Add(failure.ToString());
-
-            foreach (var error in result.Errors)
-                messages.Add(error.ToString());
-
-            messages.Add($"Ran {result.RunCount} test(s) in {result.Duration} seconds");
-            messages.Add($"Total: {result.RunCount}, Errors: {result.ErrorCount}, Failures: {result.FailureCount}");
-
-            if (_stream != null)
-            {
-                foreach (var message in messages)
-                    _stream.WriteLine(message);
-            }
-            else
-            {
-                foreach (var message in messages)
-                    NinjaTrader.NinjaScript.NinjaScript.Log(message, LogLevel.Information);
-            }
         }
     }
 }

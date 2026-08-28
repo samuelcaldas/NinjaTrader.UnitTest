@@ -1,50 +1,58 @@
-﻿using NinjaTrader.Cbi;
 using System;
 using System.Collections.Generic;
 
 namespace NinjaTrader.UnitTest
 {
+    /// <summary>
+    /// Represents a scoped sub-test within a TestCase method.
+    /// </summary>
     public class SubTest : IDisposable
     {
-        private string testCase;
-        private string msg;
-        private Dictionary<string, object> parameters;
-        private bool success = true;
+        public string TestName { get; }
+        public string Message { get; }
+        public Dictionary<string, object> Parameters { get; }
+        public bool IsDisposed { get; private set; }
 
-        public SubTest(string testCase, string msg = null, Dictionary<string, object> parameters = null)
+        private readonly TestCase _testCase;
+
+        public SubTest(string testName, string msg = null, Dictionary<string, object> parameters = null, TestCase testCase = null)
         {
-            this.testCase = testCase;
-            this.msg = msg;
-            this.parameters = parameters ?? new Dictionary<string, object>();
+            TestName = testName;
+            Message = msg;
+            Parameters = parameters ?? new Dictionary<string, object>();
+            _testCase = testCase;
         }
 
         public void Dispose()
         {
-            try
+            if (!IsDisposed)
             {
-                // Execute the test case
-                //testCase.Run();
+                IsDisposed = true;
+                if (_testCase != null && _testCase.CurrentSubTest == this)
+                {
+                    _testCase.CurrentSubTest = null;
+                }
+            }
+        }
 
-                // Set the success flag to true if execution does not throw an exception
-                success = true;
-            }
-            catch (Exception)
+        public override string ToString()
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrEmpty(Message))
+                parts.Add(Message);
+
+            if (Parameters != null && Parameters.Count > 0)
             {
-                // Set the success flag to false if an exception is encountered
-                success = false;
-                throw; // re-throw the exception to signal test failure
-            }
-            finally
-            {
-                if (success)
+                var paramStrings = new List<string>();
+                foreach (var kvp in Parameters)
                 {
-                    NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase} ({msg})", LogLevel.Information);
+                    paramStrings.Add($"{kvp.Key}={kvp.Value}");
                 }
-                else
-                {
-                    NinjaTrader.NinjaScript.NinjaScript.Log($"{testCase} ({msg}) ... FAIL", LogLevel.Error);
-                }
+                parts.Add(string.Join(", ", paramStrings));
             }
+
+            string details = parts.Count > 0 ? $" ({string.Join(", ", parts)})" : string.Empty;
+            return $"{TestName}{details}";
         }
     }
 }

@@ -1,113 +1,223 @@
-# NinjaTrader UnitTest
+# NinjaTrader.UnitTest
 
-NinjaTrader UnitTest is an add-on for NinjaTrader 8 that provides a unit testing framework similar to Python's `unittest`, but written in C# and adapted for NinjaTrader.
+`NinjaTrader.UnitTest` is a lightweight, full-featured unit testing and mocking framework for NinjaTrader 8. Modeled after Python's `unittest` standard library (`TestCase`, `TestSuite`, `TestLoader`, `TextTestRunner`, `Assert`), it combines Python-style testing elegance with modern C# features and a dedicated **NinjaTrader Mocking & Harness Kit** for testing custom indicators, strategies, and add-ons.
 
-## Installation
+---
 
-To install NinjaTrader.UnitTest, follow these steps:
-1. Download the source code from the GitHub repository.
-2. Build the `NinjaTrader.UnitTest.sln` solution using Visual Studio to generate the `NinjaTrader.UnitTest.dll` file.
-3. Copy the `NinjaTrader.UnitTest.dll` file to the `bin/Custom` folder of your NinjaTrader 8 installation.
-4. In the NinjaScript Editor, right-click on the `References` folder and select `Add Reference...`.
-5. In the `Add Reference` window, browse to the `NinjaTrader.UnitTest.dll` file and select it.
+## Features
 
-## Usage
+- **Full Python `unittest` Parity:** `TestCase`, `TestSuite`, `TestLoader`, `TextTestRunner`, `SubTest`, dynamic skipping (`SkipTest`), expected failures (`[ExpectedFailure]`), and class fixtures (`SetUpClass` / `TearDownClass`).
+- **Hybrid Test Discovery:** Automatically discover test methods starting with `Test*` / `test_*` or decorated with `[Test]` / `[TestMethod]`.
+- **Complete Assertion Suite:** Full Python assertions (`AssertEqual`, `AssertRaises`, `AssertAlmostEqual`, `AssertIn`, `AssertIsNone`, `AssertGreater`, `AssertRegex`, `AssertSequenceEqual`) plus standard C# aliases (`AreEqual`, `Throws`, `AreAlmostEqual`, `Contains`, `IsNull`, `IsTrue`).
+- **Strict Error vs. Failure Separation:** Assertions throw `AssertionException` (recorded as Failures), while unhandled runtime exceptions are recorded as Errors.
+- **NinjaTrader Mocking & Harness Kit:**
+  - `BarSeriesBuilder` & `MockBarSeries` for fluent OHLCV price series creation with NinjaTrader-style `Close(barsAgo)` indexing.
+  - `MockInstrument` with tick rounding, tick calculations, and multi-asset presets (ES, MES, AAPL, EURUSD, BTCUSD).
+  - `MockAccount` & `MockOrder` with position tracking, fill simulations, and realized/unrealized PnL.
+  - `NinjaScriptTestHarness` for step-by-step indicator and strategy execution through state transitions and bars.
+- **Pluggable Output Logging:** Logs automatically to `NinjaTrader.NinjaScript.NinjaScript.Log` inside NinjaTrader 8, and falls back gracefully to `Console` or `TextWriter` when running standalone or in CI/CD.
 
-To use the NinjaTrader UnitTest add-on in your own NinjaScript project, follow these steps:
-1. Add a reference to the `NinjaTrader.UnitTest` namespace.
-2. Create test cases by subclassing the `NinjaTrader.UnitTest.TestCase` class.
+---
 
-Here is an example of how to create a simple test case using the NinjaTrader UnitTest add-on:
+## Installation & Build
+
+### Prerequisites
+- Windows 10/11
+- NinjaTrader 8 (64-bit)
+- .NET Framework 4.8 / Visual Studio 2022 / MSBuild
+
+### Build Commands
+```powershell
+# Build x64 (Recommended for NinjaTrader 8)
+msbuild NinjaTrader.UnitTest.sln /p:Configuration=Release /p:Platform="x64"
+
+# Build AnyCPU
+msbuild NinjaTrader.UnitTest.sln /p:Configuration=Release /p:Platform="AnyCPU"
+```
+
+*Note:* The project automatically copies `NinjaTrader.UnitTest.dll` and `.pdb` to your `%USERPROFILE%\Documents\NinjaTrader 8\bin\Custom\` directory on build.
+
+---
+
+## Quick Start & Usage
+
+### 1. Authoring Unit Tests
+
+Subclass `TestCase` and author your test methods:
 
 ```csharp
 using System;
+using System.Collections.Generic;
 using NinjaTrader.UnitTest;
+
+public class IndicatorCalculationTests : TestCase
+{
+    // Optional: parameterless constructor or (string name) constructor
+    public IndicatorCalculationTests() : base() { }
+    public IndicatorCalculationTests(string name) : base(name) { }
+
+    public override void SetUp()
+    {
+        // Executed before each test
+    }
+
+    public override void TearDown()
+    {
+        // Executed after each test
+    }
+
+    public void TestMovingAverageCalculation()
+    {
+        double price1 = 5000.25;
+        double price2 = 5000.75;
+        double average = (price1 + price2) / 2.0;
+
+        AssertEqual(5000.50, average);
+        AssertAlmostEqual(5000.50, average, delta: 0.01);
+    }
+
+    public void TestExceptionHandling()
+    {
+        AssertRaises<DivideByZeroException>(() =>
+        {
+            int zero = 0;
+            int result = 10 / zero;
+        });
+    }
+
+    public void TestSubTests()
+    {
+        var numbers = new int[] { 2, 4, 6, 8 };
+        foreach (var n in numbers)
+        {
+            SubTest($"Testing {n}", () =>
+            {
+                AssertEqual(0, n % 2);
+            });
+        }
+    }
+
+    [Skip("Waiting on API update")]
+    public void TestPendingFeature()
+    {
+        // Skipped automatically
+    }
+}
+```
+
+### 2. Auto-Discovery & Running Tests in a NinjaTrader AddOn
+
+```csharp
+using NinjaTrader.UnitTest;
+using NinjaTrader.NinjaScript;
 
 namespace NinjaTrader.NinjaScript.AddOns
 {
-    public class MyTestCase : TestCase
+    public class RunTestsAddon : AddOnBase
     {
-        public Tests(string name) : base(name)
-        { }
-
-        public void TestAddition()
+        protected override void OnStateChange()
         {
-            int result = 2 + 2;
-            int expected = 4;
-            Assert.AreEqual(expected, result);
+            if (State == State.SetDefaults)
+            {
+                Name = "RunTestsAddon";
+                Description = "Runs NinjaTrader Unit Tests";
+            }
+        }
+
+        public void ExecuteTests()
+        {
+            // Auto-discover all test methods in IndicatorCalculationTests
+            TestSuite suite = TestLoader.LoadTestsFromTestCase<IndicatorCalculationTests>();
+
+            // Run suite and output results to the NinjaTrader Output window
+            TestResult result = TextTestRunner.Run(suite, verbosity: 2);
         }
     }
 }
 ```
 
-This code defines a new test case called `MyTestCase` that contains a single test method called `TestAddition`. This test method uses the `Assert.AreEqual` method from the `NinjaTrader.UnitTest.Assert` class to verify that the result of adding 2 and 2 is equal to 4.
+---
 
-To run this test case, you can create an instance of the `MyTestCase` class and call its `Run` method, like this:
+## NinjaTrader Mocking & Harness Kit
 
-```csharp
-MyTestCase myTestCase = new MyTestCase();
-myTestCase.Run();
-```
-
-
-Alternatively, you can create a `TestSuite` object and add the `MyTestCase` object to it, like this:
+### Mocking Bars & Price Series
 
 ```csharp
-namespace NinjaTrader.NinjaScript.AddOns
-{
-	public class TestAddon : NinjaTrader.NinjaScript.AddOnBase
-	{
-		protected override void OnStateChange()
-		{
-            if (State == State.SetDefaults)
-            {
-                Name = "TestAddon";
-                Description = "An add-on that runs UnitTests on Ninjatrader";
-            }
-            else if (State == State.Configure)
-            {
-			
-                // Subscribe to connection updates
-                Connection.ConnectionStatusUpdate += OnConnectionStatusUpdate;
-            }
-            else if (State == State.Terminated)
-            {
-                // Unsubscribe from connection updates
-                Connection.ConnectionStatusUpdate -= OnConnectionStatusUpdate;
-            }
-		}
-		
-		// This method is fired on connection status update events
-        protected void OnConnectionStatusUpdate(object sender, ConnectionStatusEventArgs connectionStatusUpdate)
-        {
-            if (connectionStatusUpdate.Status == ConnectionStatus.Connected)
-            {
-                NinjaTrader.NinjaScript.NinjaScript.Log("Connected for orders at " + DateTime.Now, LogLevel.Information);
+using NinjaTrader.UnitTest.Mocking;
 
-                // Run tests
-                TestSuite suite = new TestSuite();
-                suite.Add(new MyTestCase("TestAddition"));
-                TestResult result = suite.Run();
+var series = new BarSeriesBuilder("ES 03-26")
+    .AddBar(open: 5000.0, high: 5010.0, low: 4995.0, close: 5005.0, volume: 1000)
+    .AddBar(open: 5005.0, high: 5020.0, low: 5002.0, close: 5015.0, volume: 1500)
+    .Build();
 
-                result.PrintSummary();
-   
-            }
-
-            else if (connectionStatusUpdate.Status == ConnectionStatus.ConnectionLost)
-            {
-                NinjaTrader.NinjaScript.NinjaScript.Log("Connection for orders lost at: " + DateTime.Now, LogLevel.Information);
-            }
-        }
-	}
-}
+// NinjaTrader-style barsAgo indexing (0 = most recent)
+double currentClose = series.Close(0); // 5015.0
+double previousClose = series.Close(1); // 5005.0
 ```
 
-This will execute the `TestAddition` method and log the results using the `NinjaScript.Log` method.
+### Mocking Instruments & PnL Calculations
 
-## Contributing
+```csharp
+var es = MockInstrument.CreateFutures("ES", tickSize: 0.25, pointValue: 50.0);
 
-We welcome contributions! If you have ideas for improving this tool, please feel free to submit a pull request or open an issue.
+// Round to tick
+double rounded = es.RoundToTick(5000.22); // 5000.25
+
+// Calculate PnL: 2 contracts long bought at 5000 and sold at 5010 = $1,000
+double pnl = es.CalculatePnL(entryPrice: 5000.0, exitPrice: 5010.0, quantity: 2, isLong: true);
+```
+
+### Testing Indicators / Strategies with `NinjaScriptTestHarness`
+
+```csharp
+var bars = new BarSeriesBuilder("ES")
+    .AddTrend(barCount: 10, startPrice: 5000, stepPerBar: 2.5)
+    .Build();
+
+var harness = new NinjaScriptTestHarness(bars);
+
+harness.OnStateChange(state => {
+    // Handle state transitions: SetDefaults -> Configure -> DataLoaded -> Historical
+});
+
+harness.OnBarUpdate(barIndex => {
+    // Test indicator or strategy calculation per bar
+});
+
+harness.RunAllBars();
+```
+
+---
+
+## Assertion Reference
+
+| Python `unittest` Method | C# Alias | Description |
+| :--- | :--- | :--- |
+| `AssertEqual(exp, act)` | `AreEqual` | Checks that `exp` equals `act` |
+| `AssertNotEqual(exp, act)` | `AreNotEqual` | Checks that `exp` does not equal `act` |
+| `AssertTrue(cond)` | `IsTrue` | Asserts condition is true |
+| `AssertFalse(cond)` | `IsFalse` | Asserts condition is false |
+| `AssertIs(exp, act)` | `AreSame` | Checks reference equality |
+| `AssertIsNot(exp, act)` | `AreNotSame` | Checks reference inequality |
+| `AssertIsNone(obj)` | `IsNull` | Asserts object is null |
+| `AssertIsNotNone(obj)` | `IsNotNull` | Asserts object is not null |
+| `AssertIn(item, coll)` | `Contains` | Checks item is present in generic collection |
+| `AssertNotIn(item, coll)` | `DoesNotContain` | Checks item is not in collection |
+| `AssertRaises<T>(action)` | `Throws<T>` | Asserts exception of type `T` is thrown |
+| `AssertAlmostEqual(exp, act, places, delta)` | `AreAlmostEqual` | Checks floating-point equality within places or delta |
+| `AssertGreater(v1, v2)` | `Greater` | Checks `v1 > v2` |
+| `AssertGreaterEqual(v1, v2)` | `GreaterOrEqual` | Checks `v1 >= v2` |
+| `AssertLess(v1, v2)` | `Less` | Checks `v1 < v2` |
+| `AssertLessEqual(v1, v2)` | `LessOrEqual` | Checks `v1 <= v2` |
+| `AssertRegex(str, pat)` | - | Matches string against regex pattern |
+| `AssertSequenceEqual(s1, s2)` | - | Verifies element-by-element equality of sequences |
+| `AssertCountEqual(c1, c2)` | - | Verifies equal item multiset counts regardless of order |
+| `AssertEmpty(coll)` | `IsEmpty` | Asserts collection has no items |
+| `AssertNotEmpty(coll)` | `IsNotEmpty` | Asserts collection contains items |
+| `Fail(msg)` | - | Explicitly fails the test |
+
+---
 
 ## License
 
-This project is licensed under the MIT license. See the [LICENSE.txt](LICENSE.txt) file for more information.
+This project is licensed under the MIT License. See the [LICENSE.txt](LICENSE.txt) file for details.

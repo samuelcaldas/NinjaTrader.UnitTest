@@ -1,43 +1,23 @@
-﻿using System;
+using System;
 using System.IO;
-using System.Reflection;
 
 namespace NinjaTrader.UnitTest
 {
+    /// <summary>
+    /// TestResult implementation tailored for text-based runners and streams.
+    /// </summary>
     public class TextTestResult : TestResult
     {
-        private readonly TextWriter _writer;
-
-        public TextTestResult(TextWriter writer)
+        public TextTestResult(TextWriter writer, int verbosity = 1, bool failfast = false)
+            : base(verbosity, new TextWriterOutput(writer))
         {
-            _writer = writer;
+            FailFast = failfast;
         }
 
-        public override void AddError(string testCase, Exception exception)
+        public TextTestResult(ITestOutput output, int verbosity = 1, bool failfast = false)
+            : base(verbosity, output)
         {
-            base.AddError(testCase, exception);
-            _writer.WriteLine($"ERROR: {testCase}");
-            _writer.WriteLine(exception);
+            FailFast = failfast;
         }
-
-        public override void AddFailure(string testCase, Exception exception)
-        {
-            base.AddFailure(testCase, exception);
-            _writer.WriteLine($"FAIL: {testCase}");
-            _writer.WriteLine(exception);
-        }
-
-        //public override void StartTest(string testCase)
-        //{
-        //    base.StartTest(testCase);
-        //    _writer.Write(testCase);
-        //    _writer.Write(" ... ");
-        //}
-
-        //public override void StopTest(string testCase)
-        //{
-        //    base.StopTest(testCase);
-        //    _writer.WriteLine("ok");
-        //}
     }
 }

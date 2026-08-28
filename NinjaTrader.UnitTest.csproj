@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -48,12 +48,19 @@
     <LangVersion>7.3</LangVersion>
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
+  <PropertyGroup>
+    <NinjaTraderPath Condition="'$(NinjaTraderPath)' == '' and Exists('$(ProgramW6432)\NinjaTrader 8\bin')">$(ProgramW6432)\NinjaTrader 8\bin</NinjaTraderPath>
+    <NinjaTraderPath Condition="'$(NinjaTraderPath)' == '' and Exists('C:\Program Files\NinjaTrader 8\bin')">C:\Program Files\NinjaTrader 8\bin</NinjaTraderPath>
+    <NinjaTraderPath Condition="'$(NinjaTraderPath)' == ''">..\..\..\..\..\..\Program Files\NinjaTrader 8\bin</NinjaTraderPath>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="NinjaTrader.Core">
-      <HintPath>..\..\..\..\..\Program Files\NinjaTrader 8\bin\NinjaTrader.Core.dll</HintPath>
+      <HintPath>$(NinjaTraderPath)\NinjaTrader.Core.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="NinjaTrader.Gui">
-      <HintPath>..\..\..\..\..\Program Files\NinjaTrader 8\bin\NinjaTrader.Gui.dll</HintPath>
+      <HintPath>$(NinjaTraderPath)\NinjaTrader.Gui.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -66,24 +73,37 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assert.cs" />
-    <Compile Include="SkipTestException.cs" />
+    <Compile Include="Attributes.cs" />
+    <Compile Include="ConsoleOutput.cs" />
+    <Compile Include="Exceptions.cs" />
+    <Compile Include="FrameworkSelfTests.cs" />
+    <Compile Include="IAssert.cs" />
+    <Compile Include="ITestOutput.cs" />
+    <Compile Include="Mocking\BarSeriesBuilder.cs" />
+    <Compile Include="Mocking\MockAccount.cs" />
+    <Compile Include="Mocking\MockBars.cs" />
+    <Compile Include="Mocking\MockInstrument.cs" />
+    <Compile Include="Mocking\MockOrder.cs" />
+    <Compile Include="Mocking\NinjaScriptTestHarness.cs" />
+    <Compile Include="NinjaTraderOutput.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SubTest.cs" />
     <Compile Include="TestCase.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TestLoader.cs" />
+    <Compile Include="TestOutputHelper.cs" />
     <Compile Include="TestResult.cs" />
+    <Compile Include="TestSuite.cs" />
     <Compile Include="TextTestResult.cs" />
     <Compile Include="TextTestRunner.cs" />
-    <Compile Include="TestSuite.cs" />
+    <Compile Include="TextWriterOutput.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>del "$(registry:HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders@Personal)\NinjaTrader 8\bin\Custom\$(TargetFileName)"
-del "$(registry:HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders@Personal)\NinjaTrader 8\bin\Custom\$(TargetName).pdb"
-xcopy /E /Y "$(TargetFileName)" "$(registry:HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders@Personal)\NinjaTrader 8\bin\Custom"
-xcopy /E /Y "$(TargetName).pdb" "$(registry:HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders@Personal)\NinjaTrader 8\bin\Custom"</PostBuildEvent>
-  </PropertyGroup>
-  <PropertyGroup>
-    <PreBuildEvent>
-    </PreBuildEvent>
+    <PostBuildEvent Condition="Exists('$(registry:HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders@Personal)\NinjaTrader 8\bin\Custom')">
+      del "$(registry:HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders@Personal)\NinjaTrader 8\bin\Custom\$(TargetFileName)"
+      del "$(registry:HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders@Personal)\NinjaTrader 8\bin\Custom\$(TargetName).pdb"
+      xcopy /E /Y "$(TargetFileName)" "$(registry:HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders@Personal)\NinjaTrader 8\bin\Custom"
+      xcopy /E /Y "$(TargetName).pdb" "$(registry:HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders@Personal)\NinjaTrader 8\bin\Custom"
+    </PostBuildEvent>
   </PropertyGroup>
 </Project>
