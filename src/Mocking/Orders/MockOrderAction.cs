@@ -1,11 +1,13 @@
 namespace NinjaTrader.UnitTest.Mocking
 {
     /// <summary>
-    /// Order action direction (Buy / Sell).
+    /// Order action direction modeling NinjaTrader's OrderAction (Buy, Sell, BuyToCover, SellShort).
     /// </summary>
     public enum MockOrderAction
     {
         Buy,
-        Sell
+        Sell,
+        BuyToCover,
+        SellShort
     }
 }

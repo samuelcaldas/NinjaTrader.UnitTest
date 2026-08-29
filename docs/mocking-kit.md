@@ -1,8 +1,8 @@
 # NinjaTrader Mocking & Harness Kit
 
-A central challenge in testing NinjaTrader 8 indicators and strategies is their tight coupling with the live chart engine and historical market data feeds. 
+A central challenge in testing NinjaTrader 8 indicators, strategies, and Add-Ons is their tight coupling with the live desktop client, chart rendering engine, Level 2 DOM, and broker data feeds. 
 
-`NinjaTrader.UnitTest` provides a complete, decoupled mocking ecosystem in the `NinjaTrader.UnitTest.Mocking` namespace.
+`NinjaTrader.UnitTest` provides a complete, decoupled mocking ecosystem in the `NinjaTrader.UnitTest.Mocking` namespace, enabling lightning-fast **headless unit testing** in CI/CD and Visual Studio Test Explorer.
 
 ---
 
@@ -11,296 +11,369 @@ A central challenge in testing NinjaTrader 8 indicators and strategies is their 
 ```mermaid
 classDiagram
     class NinjaScriptTestHarness {
+        +MockBarsArray BarsArray
         +MockBarSeries Bars
         +MockInstrument Instrument
         +MockAccount Account
+        +MockMarketDepth MarketDepth
+        +MockStrategyPerformance Performance
         +MockState State
         +int CurrentBar
+        +int BarsInProgress
+        +AddDataSeries(MockBarSeries)
         +OnStateChange(Action~MockState~)
         +OnBarUpdate(Action~int~)
-        +Initialize()
+        +OnOrderUpdate(Action~MockOrder~)
+        +OnExecutionUpdate(Action~MockExecution~)
+        +OnPositionUpdate(Action~MockPosition~)
+        +OnMarketData(Action~MockMarketDataEventArgs~)
+        +OnMarketDepth(Action~MockMarketDepthEventArgs~)
         +StepNextBar() bool
         +RunAllBars()
-        +Terminate()
     }
 
-    class MockBarSeries {
-        +string InstrumentName
-        +int Count
-        +int CurrentBar
-        +Close(int barsAgo) double
-        +Open(int barsAgo) double
-        +High(int barsAgo) double
-        +Low(int barsAgo) double
-        +Volume(int barsAgo) long
-        +Time(int barsAgo) DateTime
+    class MockMarketDepth {
+        +List~MockDepthLevel~ Bids
+        +List~MockDepthLevel~ Asks
+        +double BestBid
+        +double BestAsk
+        +double Spread
+        +MockVolumeProfile VolumeProfile
+        +ProcessDepth(type, operation, price, volume, position)
+        +GetBidAskImbalance(levels) double
+        +TakeSnapshot() MockDepthSnapshot
+        +RecordTrade(price, volume, isAggressiveBuy)
     }
 
-    class BarSeriesBuilder {
-        +AddBar(open, high, low, close, volume)
-        +AddBars(tuples)
-        +AddTrend(barCount, startPrice, stepPerBar)
-        +Build() MockBarSeries
+    class MockVolumeProfile {
+        +long TotalVolume
+        +long CumulativeDelta
+        +double PointOfControl
+        +CalculateValueArea(percentage)
+        +AddTrade(price, volume, isBuy)
     }
 
-    class MockInstrument {
-        +string Name
-        +double TickSize
-        +double PointValue
-        +MockInstrumentType InstrumentType
-        +RoundToTick(double price) double
-        +CalculatePnL(entry, exit, qty, isLong) double
-        +CalculateTicks(double priceDiff) double
-        +CreateFutures(symbol) MockInstrument$
-        +CreateMicroFutures(symbol) MockInstrument$
-        +CreateStock(symbol) MockInstrument$
-        +CreateForex(symbol) MockInstrument$
-        +CreateCrypto(symbol) MockInstrument$
+    class MarketReplayReader {
+        +ReadFromFile(path) List~MarketReplayEvent~$
+        +ReadFromString(csv) List~MarketReplayEvent~$
+        +ParseBarsFromText(csv) MockBarSeries$
+        +ParseDepthFromText(csv) List~MarketReplayEvent~$
     }
 
-    class MockAccount {
-        +string Name
-        +double CashValue
-        +double InitialCash
-        +SubmitOrder(instrument, action, type, qty) MockOrder
-        +FillOrder(order, fillPrice, qty)
-        +CancelOrder(order)
-        +GetPosition(instrument) MockPosition
-        +GetTotalRealizedPnL() double
+    class MarketReplayPlayer {
+        +int TotalEvents
+        +bool HasMoreEvents
+        +StepNext(harness) bool
+        +PlayToEnd(harness) int
+        +PlayUntil(timestamp, harness) int
     }
 
-    class MockOrder {
-        +MockInstrument Instrument
-        +MockOrderAction Action
-        +MockOrderType OrderType
-        +int Quantity
-        +int FilledQuantity
-        +double AverageFillPrice
-        +MockOrderState State
-        +bool IsFilled
-        +bool IsWorking
+    class MarketReplayBuilder {
+        +AddTick(price, volume)
+        +AddTickReplay(last, bid, ask, volume)
+        +AddDepth(type, op, price, volume)
+        +AddOrderBookSpread(mid, spread, levels)
+        +AddTradeSweep(action, start, end)
+        +Build() List~MarketReplayEvent~
+        +ExportToCsv() string
     }
 
-    class MockPosition {
-        +MockInstrument Instrument
-        +int Quantity
-        +double AveragePrice
-        +double RealizedPnL
-        +bool IsLong
-        +bool IsShort
-        +bool IsFlat
-    }
-
-    BarSeriesBuilder --> MockBarSeries : constructs
-    NinjaScriptTestHarness *-- MockBarSeries : uses
-    NinjaScriptTestHarness *-- MockInstrument : uses
-    NinjaScriptTestHarness *-- MockAccount : uses
-    MockAccount *-- MockOrder : manages
-    MockAccount *-- MockPosition : tracks
-    MockOrder --> MockInstrument : references
-    MockPosition --> MockInstrument : references
+    NinjaScriptTestHarness *-- MockMarketDepth
+    MockMarketDepth *-- MockVolumeProfile
+    MarketReplayPlayer ..> NinjaScriptTestHarness : replays events into
+    MarketReplayBuilder ..> MarketReplayPlayer : feeds
+    MarketReplayReader ..> MarketReplayPlayer : feeds
 ```
 
 ---
 
-## 1. Synthetic Bars & Price Series
+## 1. Generic Data Series ([`MockSeries<T>`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Series/MockSeries.cs))
 
-### [`BarSeriesBuilder`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Bars/BarSeriesBuilder.cs)
+NinjaTrader indicators and strategies use `Series<T>` (`Series<double>`, `Series<bool>`, `Series<string>`, etc.) to store intermediate calculation series synchronized with historical bars.
 
-Use the fluent [`BarSeriesBuilder`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Bars/BarSeriesBuilder.cs) to quickly assemble OHLCV datasets:
+[`MockSeries<T>`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Series/MockSeries.cs) implements [`ISeries<T>`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Series/ISeries.cs) and supports native `[barsAgo]` indexing, `Set()`, `Reset()`, and `IsValidDataPoint()`:
 
 ```csharp
 using NinjaTrader.UnitTest.Mocking;
 
-MockBarSeries series = new BarSeriesBuilder(instrumentName: "ES", startTime: new DateTime(2026, 1, 1, 9, 30, 0))
-    // 1. Add discrete individual bars
-    .AddBar(open: 5000.00, high: 5010.50, low: 4995.00, close: 5005.25, volume: 1200)
-    .AddBar(open: 5005.25, high: 5020.00, low: 5002.00, close: 5015.50, volume: 1800)
+// 1. Synchronized to a BarSeries
+MockBarSeries bars = new BarSeriesBuilder("ES").AddTrend(10, 5000.0, 1.0).Build();
+var rsiValues = new MockSeries<double>(bars);
+var signalMarkers = new MockSeries<bool>(bars);
 
-    // 2. Add multiple bars with tuple syntax
-    .AddBars(
-        (open: 5015.50, high: 5025.00, low: 5010.00, close: 5022.00),
-        (open: 5022.00, high: 5030.00, low: 5018.00, close: 5028.75)
-    )
+// 2. Set values on the active bar (barsAgo = 0)
+rsiValues[0] = 68.5;
+signalMarkers[0] = true;
 
-    // 3. Add automated upward or downward price trends
-    .AddTrend(barCount: 20, startPrice: 5030.00, stepPerBar: 0.50, barRange: 2.0)
+// 3. Set values for historical bars (barsAgo > 0)
+rsiValues[1] = 62.0;
+
+// 4. Access and verify
+AssertEqual(68.5, rsiValues[0]);
+AssertEqual(62.0, rsiValues[1]);
+AssertTrue(rsiValues.IsValidDataPoint(0));
+
+// 5. Reset data point validity
+rsiValues.Reset(0);
+AssertFalse(rsiValues.IsValidDataPoint(0));
+```
+
+---
+
+## 2. Multi-Timeframe & Multi-Bars ([`MockBarsArray`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Bars/MockBarsArray.cs))
+
+Test multi-timeframe indicators and strategies (such as 1-minute primary + 5-minute secondary series) using [`MockBarsArray`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Bars/MockBarsArray.cs):
+
+```csharp
+// Primary 1-minute series
+var primary1Min = new BarSeriesBuilder("ES", timeStep: TimeSpan.FromMinutes(1))
+    .AddTrend(20, 5000.0, 0.50)
     .Build();
-```
+primary1Min.PeriodType = MockBarsPeriodType.Minute;
+primary1Min.PeriodValue = 1;
 
-### [`MockBarSeries`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Bars/MockBarSeries.cs) Reverse Indexing
+// Secondary 5-minute series
+var secondary5Min = new BarSeriesBuilder("ES", timeStep: TimeSpan.FromMinutes(5))
+    .AddTrend(4, 5000.0, 2.50)
+    .Build();
+secondary5Min.PeriodType = MockBarsPeriodType.Minute;
+secondary5Min.PeriodValue = 5;
 
-`NinjaTrader.UnitTest` replicates NinjaTrader's native reverse-indexing notation:
-- `Close(0)` accesses the **most recent** bar.
-- `Close(1)` accesses **1 bar ago**.
-- `Close(N)` accesses **N bars ago**.
+// Build harness with multiple series
+var harness = new NinjaScriptTestHarness(primary1Min);
+harness.AddDataSeries(secondary5Min);
 
-```csharp
-double currentClose  = series.Close(0);   // Most recent close
-double previousClose = series.Close(1);   // 1 bar ago
-double oldestClose   = series.Close(series.Count - 1); // Earliest bar
-double currentHigh   = series.High(0);
-double currentLow    = series.Low(0);
-long currentVolume   = series.Volume(0);
-DateTime barTime     = series.Time(0);
-```
-
----
-
-## 2. Multi-Asset Instruments & PnL Engine
-
-The [`MockInstrument`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Instruments/MockInstrument.cs) class models market specifications and calculates tick quantization and dollar profit/loss.
-
-### Preset Asset Factories
-
-```csharp
-// E-mini S&P 500 Futures ($50 point value, 0.25 tick)
-MockInstrument es = MockInstrument.CreateFutures("ES", tickSize: 0.25, pointValue: 50.0);
-
-// Micro E-mini S&P 500 Futures ($5 point value, 0.25 tick)
-MockInstrument mes = MockInstrument.CreateMicroFutures("MES", tickSize: 0.25, pointValue: 5.0);
-
-// Apple Stock ($1 point value, 0.01 tick)
-MockInstrument aapl = MockInstrument.CreateStock("AAPL", tickSize: 0.01, pointValue: 1.0);
-
-// EUR/USD Forex (100,000 lot size, 0.0001 pip)
-MockInstrument eurusd = MockInstrument.CreateForex("EURUSD", tickSize: 0.0001, pointValue: 100000.0);
-
-// Bitcoin Crypto ($1 point value, 0.01 tick)
-MockInstrument btc = MockInstrument.CreateCrypto("BTCUSD", tickSize: 0.01, pointValue: 1.0);
-```
-
-### Quantization & Calculations
-
-```csharp
-// Round arbitrary price to valid instrument tick
-double rounded = es.RoundToTick(5000.22); // Returns 5000.25
-
-// Calculate number of ticks in a price movement
-double ticks = es.CalculateTicks(priceDiff: 2.50); // Returns 10.0 ticks
-
-// Calculate PnL: 2 Long contracts bought at 5000.00, sold at 5010.00
-// (5010.00 - 5000.00) * $50.00 pointValue * 2 contracts = $1,000.00
-double pnl = es.CalculatePnL(entryPrice: 5000.00, exitPrice: 5010.00, quantity: 2, isLong: true);
-AssertEqual(1000.00, pnl);
+AssertEqual(2, harness.BarsArray.Count);
+AssertEqual(1, harness.BarsArray[0].PeriodValue);
+AssertEqual(5, harness.BarsArray[1].PeriodValue);
 ```
 
 ---
 
-## 3. Account, Orders & Position Tracking
+## 3. Advanced Orders, ATM Brackets & OCO Groups
 
-[`MockAccount`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Accounts/MockAccount.cs) simulates an active trading account with a state machine for order submissions, partial and full fills, cancellations, and position updates.
+[`MockAccount`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Accounts/MockAccount.cs) features an automated order execution and matching engine:
 
-### Order Lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> Submitted: SubmitOrder()
-    Submitted --> PartFilled: FillOrder(partial qty)
-    PartFilled --> Filled: FillOrder(remaining qty)
-    Submitted --> Filled: FillOrder(full qty)
-    Submitted --> Cancelled: CancelOrder()
-    PartFilled --> Cancelled: CancelOrder()
-```
-
-### Complete Execution Example
+### Bracket Orders & Automatic OCO Cancellation
 
 ```csharp
-var instrument = MockInstrument.CreateFutures("ES", tickSize: 0.25, pointValue: 50.0);
-var account = new MockAccount("SimulationAccount", initialCash: 50000.0);
+var es = MockInstrument.CreateFutures("ES", tickSize: 0.25, pointValue: 50.0);
+es.CommissionPerContract = 2.05;
 
-// 1. Submit a Limit Buy Order
-MockOrder order = account.SubmitOrder(
-    instrument: instrument,
+var account = new MockAccount("AtmSim", 100000.0);
+
+// 1. Submit Bracket: Buy 2 contracts at Market, Stop-Loss at 4990, Profit-Target at 5020
+var bracket = account.SubmitBracket(
+    instrument: es,
     action: MockOrderAction.Buy,
-    orderType: MockOrderType.Limit,
-    quantity: 4,
-    limitPrice: 5000.00,
-    signalName: "EntryLong"
+    quantity: 2,
+    stopPrice: 4990.0,
+    targetPrice: 5020.0,
+    entrySignal: "LongEntry"
 );
 
-AssertTrue(order.IsWorking);
-AssertEqual(MockOrderState.Submitted, order.State);
+// 2. Fill Entry Order
+account.FillOrder(bracket.EntryOrder, fillPrice: 5000.0, quantity: 2);
+AssertTrue(bracket.EntryOrder.IsFilled);
 
-// 2. Simulate Partial Fill of 2 contracts
-account.FillOrder(order, fillPrice: 5000.00, quantity: 2);
-AssertEqual(MockOrderState.PartFilled, order.State);
-AssertEqual(2, order.FilledQuantity);
+// 3. When Profit-Target fills, Stop-Loss is automatically cancelled by OCO logic!
+account.FillOrder(bracket.ProfitTargetOrder, fillPrice: 5020.0, quantity: 2);
 
-MockPosition position = account.GetPosition(instrument);
-AssertTrue(position.IsLong);
-AssertEqual(2, position.Quantity);
-AssertEqual(5000.00, position.AveragePrice);
+AssertTrue(bracket.ProfitTargetOrder.IsFilled);
+AssertTrue(bracket.StopLossOrder.IsCancelled);
+AssertTrue(account.GetPosition(es).IsFlat);
+```
 
-// 3. Fill remaining 2 contracts
-account.FillOrder(order, fillPrice: 5000.00, quantity: 2);
-AssertTrue(order.IsFilled);
-AssertEqual(4, position.Quantity);
+### Automated Order Matching Against Bar Extremes
 
-// 4. Submit Sell Order to Close Position
-MockOrder exitOrder = account.SubmitOrder(instrument, MockOrderAction.Sell, MockOrderType.Market, quantity: 4);
-account.FillOrder(exitOrder, fillPrice: 5005.00, quantity: 4);
+```csharp
+// Submit working Buy Limit order at 5000.00
+account.SubmitOrder(es, MockOrderAction.Buy, MockOrderType.Limit, 1, limitPrice: 5000.00);
 
-AssertTrue(position.IsFlat);
-// Realized PnL: (5005.00 - 5000.00) * $50.00 * 4 contracts = $1,000.00
-AssertEqual(1000.00, position.RealizedPnL);
-AssertEqual(51000.00, account.CashValue);
+// Bar low is 4998.00 (penetrates limit) -> Automatically fills at 5000.00
+account.ProcessWorkingOrders(es, highPrice: 5005.0, lowPrice: 4998.0, closePrice: 5002.0);
+
+AssertTrue(account.Orders[0].IsFilled);
 ```
 
 ---
 
-## 4. Indicator & Strategy Test Harness
+## 4. Level 2 (L2) Market Depth & Order Flow Analytics
 
-[`NinjaScriptTestHarness`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Harness/NinjaScriptTestHarness.cs) replicates NinjaTrader 8's internal state machine without requiring a running UI or chart.
-
-### Supported State Lifecycle ([`MockState`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Harness/MockState.cs))
-1. `MockState.SetDefaults`
-2. `MockState.Configure`
-3. `MockState.DataLoaded`
-4. `MockState.Historical`
-5. `MockState.Realtime`
-6. `MockState.Terminated`
-
-### Stepping Through Calculation Logic
+[`MockMarketDepth`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/MarketData/MockMarketDepth.cs) maintains a real-time Level 2 order book ladder for testing SuperDOM columns, footprint charts, and order flow indicators:
 
 ```csharp
-public class MovingAverageIndicatorTests : TestCase
+var depth = new MockMarketDepth();
+
+// 1. Insert Bid and Ask ladders
+depth.ProcessDepth(MockMarketDataType.Bid, MockMarketDepthOperation.Insert, price: 5000.25, volume: 30);
+depth.ProcessDepth(MockMarketDataType.Bid, MockMarketDepthOperation.Insert, price: 5000.00, volume: 40);
+depth.ProcessDepth(MockMarketDataType.Ask, MockMarketDepthOperation.Insert, price: 5000.50, volume: 15);
+depth.ProcessDepth(MockMarketDataType.Ask, MockMarketDepthOperation.Insert, price: 5000.75, volume: 20);
+
+// 2. Query Top of Book & Spread
+AssertEqual(5000.25, depth.BestBid);
+AssertEqual(5000.50, depth.BestAsk);
+AssertAlmostEqual(0.25, depth.Spread, delta: 0.001);
+
+// 3. Order Book Imbalance Ratio (Top 2 levels: 70 Bids vs 35 Asks -> 66.7% Bids)
+double imbalance = depth.GetBidAskImbalance(levels: 2);
+AssertAlmostEqual(0.6667, imbalance, delta: 0.001);
+
+// 4. Capture Point-In-Time Depth Snapshot
+MockDepthSnapshot snapshot = depth.TakeSnapshot();
+AssertEqual(2, snapshot.Bids.Count);
+AssertEqual(2, snapshot.Asks.Count);
+
+// 5. Volume Profile & Order Flow Point of Control (POC)
+depth.RecordTrade(price: 5000.50, volume: 200, isAggressiveBuy: true);
+depth.RecordTrade(price: 5000.25, volume: 80, isAggressiveBuy: false);
+
+AssertEqual(280, depth.VolumeProfile.TotalVolume);
+AssertEqual(120, depth.VolumeProfile.CumulativeDelta); // 200 Buy - 80 Sell
+AssertEqual(5000.50, depth.VolumeProfile.PointOfControl); // Heaviest volume price
+```
+
+---
+
+## 5. Market Replay Files & Stream Playback
+
+[`NinjaTrader.UnitTest`](file:///C:/Program%20Files/NinjaTrader%208/bin) natively supports reading, writing, and playing NinjaTrader 8 historical data and replay files (`.txt`, `.csv`):
+
+### Supported NinjaTrader File Formats
+1. **Tick Replay (Sub-second / Second)**: `yyyyMMdd HHmmss fffffff;last price;bid price;ask price;volume`
+2. **Tick Trades**: `yyyyMMdd HHmmss;price;volume`
+3. **Minute Bars**: `yyyyMMdd HHmmss;open;high;low;close;volume`
+4. **Daily Bars**: `yyyyMMdd;open;high;low;close;volume`
+5. **Level 2 Market Depth**: `yyyyMMdd HHmmss;marketDataType;operation;price;volume;position;marketMaker`
+
+### Parsing & Playing Market Replay Files
+
+```csharp
+// 1. Parse exported NinjaTrader replay file
+List<MarketReplayEvent> events = MarketReplayReader.ReadFromFile(@"C:\Data\ES_TickReplay.txt");
+
+// 2. Initialize Harness and Player
+var harness = new NinjaScriptTestHarness();
+var player = new MarketReplayPlayer(events);
+
+harness.OnMarketData(e =>
 {
-    public void TestIndicatorOnBarUpdate()
+    Console.WriteLine($"[TICK] {e.Time}: {e.Price} (Vol: {e.Volume})");
+});
+
+// 3. Play events chronologically into harness
+int eventsProcessed = player.PlayToEnd(harness);
+AssertEqual(events.Count, eventsProcessed);
+```
+
+### Fluent Market Replay Builder & Order Book Sweeps
+
+Generate deterministic tick-by-tick and Level 2 book sweep scenarios in code:
+
+```csharp
+var builder = new MarketReplayBuilder()
+    // Setup initial 5-level DOM spread around 5000.00
+    .AddOrderBookSpread(midPrice: 5000.00, spread: 0.50, levels: 5)
+    // Aggressive buy order sweeping 4 ticks of ask liquidity
+    .AddTradeSweep(MockOrderAction.Buy, startPrice: 5000.25, endPrice: 5001.00, volumePerLevel: 25);
+
+List<MarketReplayEvent> stream = builder.Build();
+string csvExport = builder.ExportToCsv(); // Can be imported into NT8 Historical Data Manager!
+```
+
+---
+
+## 6. NinjaTrader `.nrd` Binary Replay & Real-Time Engine
+
+`NinjaTrader.UnitTest` includes high-performance binary readers and writers for **NinjaTrader `.nrd` (NinjaTrader Replay Data)** files, along with an asynchronous, paced **Real-Time Playback Engine**:
+
+### Reading and Writing `.nrd` Files
+
+```csharp
+var es = MockInstrument.CreateFutures("ES", tickSize: 0.25, pointValue: 50.0);
+
+// 1. Record simulated events to an .nrd binary file
+using (var writer = new NrdFileWriter(@"C:\Data\ES_Replay.nrd", es))
+{
+    writer.WriteEvent(MarketReplayEvent.CreateTick(DateTime.Now, 5000.25, 10, es));
+    writer.WriteEvent(MarketReplayEvent.CreateDepth(DateTime.Now, MockMarketDataType.Bid, MockMarketDepthOperation.Insert, 5000.00, 25, 0, "", es));
+}
+
+// 2. Read events directly from an .nrd file with date range filtering
+using (var reader = new NrdFileReader(@"C:\Data\ES_Replay.nrd"))
+{
+    Console.WriteLine($"Header: Symbol={reader.Header.Symbol}, Records={reader.Header.RecordCount}, Volume={reader.Header.TotalVolume}");
+    foreach (var e in reader.ReadEvents())
     {
-        // 1. Build synthetic bars
-        var bars = new BarSeriesBuilder("ES")
-            .AddBar(5000, 5010, 4990, 5005)
-            .AddBar(5005, 5015, 5000, 5010)
-            .AddBar(5010, 5025, 5005, 5020)
-            .Build();
-
-        // 2. Initialize harness
-        var harness = new NinjaScriptTestHarness(bars);
-
-        var observedStates = new List<MockState>();
-        var calculatedValues = new List<double>();
-
-        harness.OnStateChange(state =>
-        {
-            observedStates.Add(state);
-        });
-
-        harness.OnBarUpdate(barIndex =>
-        {
-            // Simulate indicator calculation logic
-            double close = harness.Bars.Close(0);
-            calculatedValues.Add(close);
-        });
-
-        // 3. Execute all bars
-        harness.RunAllBars();
-
-        // 4. Verify transitions and computations
-        AssertIn(MockState.SetDefaults, observedStates);
-        AssertIn(MockState.Historical, observedStates);
-        AssertEqual(3, calculatedValues.Count);
-        AssertEqual(5020.0, calculatedValues[2]);
+        // Process records
     }
+}
+```
+
+### Real-Time Paced vs. Instant Headless Playback
+
+[`NrdRealtimePlayer`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Replay/NrdRealtimePlayer.cs) allows controlling execution speed:
+
+- `SpeedMultiplier = 0.0`: **Instant Execution** (runs millions of events in milliseconds for headless CI/CD).
+- `SpeedMultiplier = 1.0`: **1x Real-Time Pacing** (waits exact millisecond delays matching the recorded event timestamps).
+- `SpeedMultiplier = 5.0`: **5x Accelerated Playback**.
+
+```csharp
+var events = MarketReplayReader.ReadNrdFile(@"C:\Data\ES_Replay.nrd");
+var harness = new NinjaScriptTestHarness(instrument: es);
+
+// Create Real-Time Player with 2x speed
+var player = new NrdRealtimePlayer(events, speedMultiplier: 2.0);
+
+// Asynchronously stream events into harness with real-time delays
+await player.PlayAsync(harness);
+```
+
+---
+
+## 7. AddOn & Connection Simulation
+
+Simulate broker and data feed connection events for Add-Ons without live credentials:
+
+```csharp
+var connection = new MockConnection("RithmicLive");
+
+connection.ConnectionStatusChanged += (sender, e) =>
+{
+    if (e.Status == MockConnectionStatus.ConnectionLost)
+    {
+        // Add-On handles connection failover
+    }
+};
+
+connection.Connect();
+AssertEqual(MockConnectionStatus.Connected, connection.Status);
+
+connection.SimulateConnectionLoss("Network adapter timeout");
+AssertEqual(MockConnectionStatus.ConnectionLost, connection.Status);
+```
+
+---
+
+## 8. Strategy Performance & Analytics
+
+[`MockStrategyPerformance`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/src/Mocking/Performance/MockStrategyPerformance.cs) calculates backtest metrics as positions open and close:
+
+```csharp
+MockStrategyPerformance perf = account.Performance;
+
+// Access comprehensive trade statistics
+int totalTrades     = perf.TotalTrades;
+double winRate      = perf.WinRate;        // e.g. 0.65 (65%)
+double profitFactor = perf.ProfitFactor;   // GrossProfit / GrossLoss
+double netProfit    = perf.NetProfit;      // Gross - Loss - Commissions
+double maxDrawdown  = perf.MaxDrawdown;    // Peak-to-trough equity drop
+double avgTrade     = perf.AverageTrade;
+
+// Inspect individual round-trip trade objects
+foreach (MockTrade trade in perf.Trades)
+{
+    Console.WriteLine($"Trade #{trade.TradeNumber}: Entry {trade.EntryPrice} -> Exit {trade.ExitPrice}, PnL: ${trade.NetProfit:F2}, MAE: ${trade.MaxAdverseExcursion:F2}");
 }
 ```
