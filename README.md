@@ -16,6 +16,7 @@
 Detailed guides and API references are available in the **[`docs/`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/docs/README.md)** directory:
 
 - 🚀 **[Getting Started Guide](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/docs/getting-started.md)**: Setup, build, deployment, writing your first test case, and execution.
+- 🎯 **[Visual Studio Test Explorer & Debugging](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/docs/visual-studio-test-adapter.md)**: Native VSTest adapter integration, running tests in Test Explorer, setting breakpoints, and UI debugging.
 - 💡 **[Core Testing Concepts](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/docs/core-concepts.md)**: `TestCase` lifecycle fixtures (`SetUp`, `TearDown`, `SetUpClass`, `TearDownClass`, `AddCleanup`), dynamic skipping (`[Skip]`, `[SkipIf]`, `[SkipUnless]`, `SkipTest`), expected failures (`[ExpectedFailure]`), and `SubTest` parameterized scenarios.
 - 🔍 **[Comprehensive Assertion Reference](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/docs/assertions-reference.md)**: Complete catalog of assertions with Python parity, C# / NUnit aliases, tolerance comparisons, and exception testing.
 - 🛠️ **[Mocking & Harness Kit](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/docs/mocking-kit.md)**: Synthetic OHLCV series (`BarSeriesBuilder`, `MockBarSeries`), multi-asset instruments (`MockInstrument`), accounts and orders (`MockAccount`, `MockOrder`, `MockPosition`), and the `NinjaScriptTestHarness`.

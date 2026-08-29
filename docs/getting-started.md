@@ -200,8 +200,22 @@ class Program
 
 ---
 
+## Executing & Debugging in Visual Studio Community
+
+`NinjaTrader.UnitTest` includes a native Visual Studio Test Adapter (`NinjaTrader.UnitTest.TestAdapter`). You can run and debug tests directly inside **Visual Studio 2022 Community Edition**:
+
+1. Open [`NinjaTrader.UnitTest.sln`](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/NinjaTrader.UnitTest.sln) in Visual Studio 2022 Community.
+2. Build the solution (`Ctrl+Shift+B`).
+3. Open the **Test Explorer** window (`Test` -> `Test Explorer` or `Ctrl+E, T`).
+4. Click **Run All Tests** (`Ctrl+R, A`) or set a breakpoint (**`F9`**) in any test method and right-click -> **Debug** (`Ctrl+R, Ctrl+T`).
+
+For complete debugging instructions, shortcuts, and troubleshooting, read the **[Visual Studio Community Guide](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/docs/visual-studio-test-adapter.md)**.
+
+---
+
 ## Next Steps
 
+- Learn how to run and debug tests with breakpoints in **[Visual Studio Test Explorer & Debugging Guide](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/docs/visual-studio-test-adapter.md)**.
 - Explore lifecycle hooks, skips, and subtests in **[Core Testing Concepts](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/docs/core-concepts.md)**.
 - Learn about the full assertion suite in **[Comprehensive Assertion Reference](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/docs/assertions-reference.md)**.
 - Discover synthetic market data, instruments, and order state machines in **[Mocking & Harness Kit](file:///C:/Users/samuel/source/repos/NT/refs/ninjatrader-unittest/docs/mocking-kit.md)**.

@@ -4,6 +4,8 @@ VisualStudioVersion = 17.6.33723.286
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NinjaTrader.UnitTest", "NinjaTrader.UnitTest.csproj", "{EB07105F-08AD-47BC-8F4A-F716E7078D59}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NinjaTrader.UnitTest.TestAdapter", "NinjaTrader.UnitTest.TestAdapter\NinjaTrader.UnitTest.TestAdapter.csproj", "{4A5D9E71-6C23-41B0-9A1F-87E34B5C6D12}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,6 +22,14 @@ Global
 		{EB07105F-08AD-47BC-8F4A-F716E7078D59}.Release|Any CPU.Build.0 = Release|AnyCPU
 		{EB07105F-08AD-47BC-8F4A-F716E7078D59}.Release|x64.ActiveCfg = Release|x64
 		{EB07105F-08AD-47BC-8F4A-F716E7078D59}.Release|x64.Build.0 = Release|x64
+		{4A5D9E71-6C23-41B0-9A1F-87E34B5C6D12}.Debug|Any CPU.ActiveCfg = Debug|AnyCPU
+		{4A5D9E71-6C23-41B0-9A1F-87E34B5C6D12}.Debug|Any CPU.Build.0 = Debug|AnyCPU
+		{4A5D9E71-6C23-41B0-9A1F-87E34B5C6D12}.Debug|x64.ActiveCfg = Debug|x64
+		{4A5D9E71-6C23-41B0-9A1F-87E34B5C6D12}.Debug|x64.Build.0 = Debug|x64
+		{4A5D9E71-6C23-41B0-9A1F-87E34B5C6D12}.Release|Any CPU.ActiveCfg = Release|AnyCPU
+		{4A5D9E71-6C23-41B0-9A1F-87E34B5C6D12}.Release|Any CPU.Build.0 = Release|AnyCPU
+		{4A5D9E71-6C23-41B0-9A1F-87E34B5C6D12}.Release|x64.ActiveCfg = Release|x64
+		{4A5D9E71-6C23-41B0-9A1F-87E34B5C6D12}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
